@@ -28,8 +28,8 @@ type doc struct {
 	name          string
 }
 
-func getCategoryID(categoryName string) string {
-	cfg, _ := LoadConfig("sweden.yaml")
+func getCategoryID(config, categoryName string) string {
+	cfg, _ := LoadConfig(config)
 	versionName := "v0.1.0-staging"
 	for _, version := range cfg.Versions {
 		if version.Name == versionName {
@@ -43,8 +43,8 @@ func getCategoryID(categoryName string) string {
 	return ""
 }
 
-func getParentDoc(categoryName, parentDirName string) string {
-	cfg, _ := LoadConfig("sweden.yaml")
+func getParentDoc(config, categoryName, parentDirName string) string {
+	cfg, _ := LoadConfig(config)
 	versionName := "v0.1.0-staging"
 	for _, version := range cfg.Versions {
 		if version.Name == versionName {
@@ -106,7 +106,7 @@ func loadDocs(path, category, version string) ([]*doc, error) {
 	return docs, nil
 }
 
-func (d *doc) Generate() error {
+func (d *doc) Generate(config string) error {
 	file, err := os.Open(d.path)
 	if err != nil {
 		return err
@@ -123,8 +123,8 @@ func (d *doc) Generate() error {
 	title = strings.TrimSpace(title)
 	matter, err := yaml.Marshal(FrontMatter{
 		Title:      title,
-		CategoryID: getCategoryID(d.category),
-		ParentDoc:  getParentDoc(d.category, d.parentDirName),
+		CategoryID: getCategoryID(config, d.category),
+		ParentDoc:  getParentDoc(config, d.category, d.parentDirName),
 	})
 	if err != nil {
 		return nil
