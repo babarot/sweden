@@ -80,14 +80,15 @@ func headingTagFromLevel(level int) []byte {
 // RenderNode is a renderer of a single node of a syntax tree.
 func (r *Renderer) RenderNode(w io.Writer, node *bf.Node, entering bool) bf.WalkStatus {
 	switch node.Type {
-	case bf.Heading:
-		headingTag := headingTagFromLevel(node.Level)
-		if entering {
-			r.out(w, headingTag)
-			w.Write(spaceBytes)
-		} else {
-			r.cr(w)
-		}
+	// case bf.Heading:
+	// 	headingTag := headingTagFromLevel(node.Level)
+	// 	if entering {
+	// 		r.out(w, headingTag)
+	// 		w.Write(spaceBytes)
+	// 	} else {
+	// 		r.cr(w)
+	// 	}
+	// 	r.Base.RenderNode(w, node, entering)
 	case bf.Link:
 		if entering {
 			r.out(w, linkTitleTag)

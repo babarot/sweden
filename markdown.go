@@ -2,79 +2,148 @@ package main
 
 import (
 	"bufio"
-	"io"
-	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	yaml "gopkg.in/yaml.v2"
 )
 
-// Markdown represents the markdown document
-type Markdown struct {
-	w        io.Writer
-	path     string
-	metadata FrontMatter
-}
-
 // FrontMatter represents the essential elements for posting the pages
 type FrontMatter struct {
 	Title      string `yaml:"title"`
 	CategoryID string `yaml:"category"`
-	ParentDoc  string `yaml:"parentDoc"`
+	ParentDoc  string `yaml:"parentDoc,omitempty"`
 }
 
-// NewMarkdown returns Markdown instance
-func NewMarkdown(path, categoryID string) (Markdown, error) {
-	fp, err := os.Open(path)
-	if err != nil {
-		return Markdown{}, err
+type doc struct {
+	baseDir       string
+	category      string
+	version       string
+	title         string
+	parentDir     string
+	parentDirName string
+	path          string
+	name          string
+}
+
+func getCategoryID(categoryName string) string {
+	cfg, _ := LoadConfig("sweden.yaml")
+	versionName := "v0.1.0-staging"
+	for _, version := range cfg.Versions {
+		if version.Name == versionName {
+			for _, category := range version.Categories {
+				if category.Name == categoryName {
+					return category.ID
+				}
+			}
+		}
 	}
-	fi, err := fp.Stat()
+	return ""
+}
+
+func getParentDoc(categoryName, parentDirName string) string {
+	cfg, _ := LoadConfig("sweden.yaml")
+	versionName := "v0.1.0-staging"
+	for _, version := range cfg.Versions {
+		if version.Name == versionName {
+			for _, category := range version.Categories {
+				if category.Name == categoryName {
+					for _, parent := range category.Parents {
+						if parent.Name == parentDirName {
+							return parent.ID
+						}
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func loadDocs(path, category, version string) ([]*doc, error) {
+	var docs []*doc
+	file, err := os.Open(path)
 	if err != nil {
-		return Markdown{}, err
+		return docs, err
+	}
+	fi, err := file.Stat()
+	if err != nil {
+		return docs, err
 	}
 	if fi.IsDir() {
-		log.Printf("%q is dir", path)
-		return Markdown{}, nil
+		err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			docs = append(docs, &doc{
+				baseDir:       filepath.Dir(filepath.Dir(path)),
+				category:      category,
+				version:       version,
+				parentDir:     filepath.Dir(path),
+				parentDirName: filepath.Base(filepath.Dir(path)),
+				path:          path,
+				name:          filepath.Base(path),
+			})
+			return nil
+		})
+		if err != nil {
+			return docs, err
+		}
+	} else {
+		docs = append(docs, &doc{
+			baseDir:  filepath.Dir(path),
+			category: category,
+			version:  version,
+			path:     path,
+			name:     filepath.Base(path),
+		})
 	}
-	scanner := bufio.NewScanner(fp)
+	return docs, nil
+}
+
+func (d *doc) Generate() error {
+	file, err := os.Open(d.path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
 	scanner.Scan()
 	title := scanner.Text()
 	if !strings.HasPrefix(title, "#") {
-		// return Markdown{}, errors.New("invalid title")
-		log.Printf("path %q, category ID %q is skipped", path, categoryID)
-		return Markdown{}, nil
+		log.Println("Skip")
+		return nil
 	}
 	title = strings.TrimPrefix(title, "#")
 	title = strings.TrimSpace(title)
-	return Markdown{
-		path: path,
-		metadata: FrontMatter{
-			Title:      title,
-			CategoryID: categoryID,
-			// ParentDoc:  parentDoc,
-		},
-	}, nil
-}
-
-// Convert converts from the common markdown to README.io flavored markdown
-func (m Markdown) Convert(w io.Writer) error {
-	out, err := yaml.Marshal(m.metadata)
+	matter, err := yaml.Marshal(FrontMatter{
+		Title:      title,
+		CategoryID: getCategoryID(d.category),
+		ParentDoc:  getParentDoc(d.category, d.parentDirName),
+	})
 	if err != nil {
-		return err
-	}
-	buf, err := ioutil.ReadFile(m.path)
-	if err != nil {
-		return err
+		return nil
 	}
 	var body []byte
 	body = append(body, []byte("---\n")...)
-	body = append(body, out...)
+	body = append(body, matter...)
 	body = append(body, []byte("---\n")...)
-	body = append(body, Render(buf)...)
-	m.w = w
-	m.w.Write(body)
+	var contents []byte
+	for scanner.Scan() {
+		contents = append(contents, scanner.Bytes()...)
+		contents = append(contents, []byte("\n")...)
+	}
+	body = append(body, Render(contents)...)
+	newfile, err := os.OpenFile(filepath.Join(d.baseDir, d.name), os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer newfile.Close()
+	newfile.Write(body)
 	return nil
 }
