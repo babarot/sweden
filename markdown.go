@@ -2,9 +2,9 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 
@@ -22,6 +22,7 @@ type Markdown struct {
 type FrontMatter struct {
 	Title      string `yaml:"title"`
 	CategoryID string `yaml:"category"`
+	ParentDoc  string `yaml:"parentDoc"`
 }
 
 // NewMarkdown returns Markdown instance
@@ -30,11 +31,21 @@ func NewMarkdown(path, categoryID string) (Markdown, error) {
 	if err != nil {
 		return Markdown{}, err
 	}
+	fi, err := fp.Stat()
+	if err != nil {
+		return Markdown{}, err
+	}
+	if fi.IsDir() {
+		log.Printf("%q is dir", path)
+		return Markdown{}, nil
+	}
 	scanner := bufio.NewScanner(fp)
 	scanner.Scan()
 	title := scanner.Text()
 	if !strings.HasPrefix(title, "#") {
-		return Markdown{}, errors.New("invalid title")
+		// return Markdown{}, errors.New("invalid title")
+		log.Printf("path %q, category ID %q is skipped", path, categoryID)
+		return Markdown{}, nil
 	}
 	title = strings.TrimPrefix(title, "#")
 	title = strings.TrimSpace(title)
@@ -43,6 +54,7 @@ func NewMarkdown(path, categoryID string) (Markdown, error) {
 		metadata: FrontMatter{
 			Title:      title,
 			CategoryID: categoryID,
+			// ParentDoc:  parentDoc,
 		},
 	}, nil
 }

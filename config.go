@@ -20,6 +20,13 @@ type Version struct {
 
 // Category represents the documentation category of README.io
 type Category struct {
+	Name    string   `yaml:"name"`
+	ID      string   `yaml:"id"`
+	Parents []Parent `yaml:"parents"`
+}
+
+// Parent represents ... TODO
+type Parent struct {
 	Name string `yaml:"name"`
 	ID   string `yaml:"id"`
 }
