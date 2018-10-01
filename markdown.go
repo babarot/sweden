@@ -28,13 +28,12 @@ type doc struct {
 	name          string
 }
 
-func getCategoryID(config, categoryName string) string {
+func (d *doc) getCategoryID(config string) string {
 	cfg, _ := LoadConfig(config)
-	versionName := "v0.1.0-staging"
 	for _, version := range cfg.Versions {
-		if version.Name == versionName {
+		if version.Name == d.version {
 			for _, category := range version.Categories {
-				if category.Name == categoryName {
+				if category.Name == d.category {
 					return category.ID
 				}
 			}
@@ -43,15 +42,14 @@ func getCategoryID(config, categoryName string) string {
 	return ""
 }
 
-func getParentDoc(config, categoryName, parentDirName string) string {
+func (d *doc) getParentDoc(config string) string {
 	cfg, _ := LoadConfig(config)
-	versionName := "v0.1.0-staging"
 	for _, version := range cfg.Versions {
-		if version.Name == versionName {
+		if version.Name == d.version {
 			for _, category := range version.Categories {
-				if category.Name == categoryName {
+				if category.Name == d.category {
 					for _, parent := range category.Parents {
-						if parent.Name == parentDirName {
+						if parent.Name == d.parentDirName {
 							return parent.ID
 						}
 					}
@@ -123,8 +121,8 @@ func (d *doc) Generate(config string) error {
 	title = strings.TrimSpace(title)
 	matter, err := yaml.Marshal(FrontMatter{
 		Title:      title,
-		CategoryID: getCategoryID(config, d.category),
-		ParentDoc:  getParentDoc(config, d.category, d.parentDirName),
+		CategoryID: d.getCategoryID(config),
+		ParentDoc:  d.getParentDoc(config),
 	})
 	if err != nil {
 		return nil

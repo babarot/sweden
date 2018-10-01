@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"io"
+	"net/url"
+	"path/filepath"
+	"strings"
 
 	bf "gopkg.in/russross/blackfriday.v2"
 )
@@ -96,8 +99,14 @@ func (r *Renderer) RenderNode(w io.Writer, node *bf.Node, entering bool) bf.Walk
 			r.out(w, node.LinkData.Title)
 			r.out(w, linkTitleCloseTag)
 			r.out(w, linkDataTag)
-			r.out(w, linkInternalSymbol)
-			r.out(w, node.LinkData.Destination)
+			u, _ := url.Parse(string(node.LinkData.Destination))
+			if u.Scheme == "" {
+				r.out(w, linkInternalSymbol)
+				dest := string(node.LinkData.Destination)
+				r.out(w, []byte(strings.TrimSuffix(dest, filepath.Ext(dest))))
+			} else {
+				r.out(w, node.LinkData.Destination)
+			}
 			r.out(w, linkDataCloseTag)
 		}
 	// case bf.CodeBlock:
